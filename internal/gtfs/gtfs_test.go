@@ -1,4 +1,4 @@
-package internal
+package gtfs
 
 import (
 	"context"
@@ -70,6 +70,10 @@ func TestGTFSDownloadStatic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to download static file %v", err)
 	}
+
+	if testGTFS.StaticHash == "" {
+		t.Fatalf("failed to hash file %v", err)
+	}
 }
 
 func TestGTFSParseStatic(t *testing.T) {
@@ -112,15 +116,15 @@ func TestGTFSParseStatic(t *testing.T) {
 		t.Fatalf("expected Stops to contain stops %v", err)
 	}
 
-	if len(testGTFS.StopTimes) == 0 {
-		t.Fatalf("expected Stops to contain stops %v", err)
-	}
-
 	if len(testGTFS.Shapes) == 0 {
 		t.Fatalf("expected Stops to contain stops %v", err)
 	}
 
 	if len(testGTFS.Calendars) == 0 {
+		t.Fatalf("expected Stops to contain stops %v", err)
+	}
+
+	if len(testGTFS.Trips) == 0 {
 		t.Fatalf("expected Stops to contain stops %v", err)
 	}
 

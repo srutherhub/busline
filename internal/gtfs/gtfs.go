@@ -1,9 +1,11 @@
-package internal
+package gtfs
 
 import (
 	"archive/zip"
 	"context"
+	"crypto/sha256"
 	"encoding/csv"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -18,14 +20,15 @@ import (
 /* struct that implements the general transit feed specification
  */
 type GTFS struct {
-	Config    GTFSConfig
-	Agency    *Agency
-	Routes    []Route
-	FeedInfo  *FeedInfo
-	Stops     []Stop
-	StopTimes []StopTimes
-	Shapes    []Shape
-	Calendars []Calendar
+	Config     GTFSConfig
+	Agency     *Agency
+	Routes     []Route
+	FeedInfo   *FeedInfo
+	Stops      []Stop
+	Shapes     []Shape
+	Calendars  []Calendar
+	Trips      []Trip
+	StaticHash string
 }
 
 /* config options for the gtfs struct
@@ -92,7 +95,9 @@ func (gtfs *GTFS) DownloadStatic(ctx context.Context) error {
 
 	defer os.Remove(tmp.Name())
 
-	if _, err := io.Copy(tmp, resp.Body); err != nil {
+	hasher := sha256.New()
+
+	if _, err := io.Copy(io.MultiWriter(tmp, hasher), resp.Body); err != nil {
 		tmp.Close()
 		return fmt.Errorf("gtfs: failed to write zip: %w", err)
 	}
@@ -110,6 +115,10 @@ func (gtfs *GTFS) DownloadStatic(ctx context.Context) error {
 	if err := os.Rename(tmp.Name(), finalPath); err != nil {
 		return fmt.Errorf("gtfs: failed to replace zip: %w", err)
 	}
+	hash := hex.EncodeToString(hasher.Sum(nil))
+
+	gtfs.StaticHash = hash
+
 	return nil
 }
 
@@ -193,17 +202,6 @@ func (gtfs *GTFS) ParseStatic() error {
 			}
 			gtfs.Stops = stops
 
-		case string(StopTimesFile):
-			rows, err := gtfs.readRecordsFromFile(f)
-			if err != nil {
-				return fmt.Errorf("gtfs: failed to parse stop_times.txt %w", err)
-			}
-			stopTimes, err := gtfs.parseStopTimesFromRecords(f, rows)
-			if err != nil {
-				return fmt.Errorf("gtfs: failed to parse stop_times.txt %w", err)
-			}
-			gtfs.StopTimes = stopTimes
-
 		case string(ShapesFile):
 			rows, err := gtfs.readRecordsFromFile(f)
 			if err != nil {
@@ -225,6 +223,16 @@ func (gtfs *GTFS) ParseStatic() error {
 			}
 			gtfs.Calendars = calendars
 
+		case string(TripsFile):
+			rows, err := gtfs.readRecordsFromFile(f)
+			if err != nil {
+				fmt.Errorf("gtfs: failed to parse from trips.txt %w", err)
+			}
+			trips, err := gtfs.parseTripsFromRecords(f, rows)
+			if err != nil {
+				fmt.Errorf("gtfs: failed to parse from trips.txt %w", err)
+			}
+			gtfs.Trips = trips
 		}
 
 	}
@@ -472,7 +480,7 @@ func (gtfs *GTFS) parseCalendarFromRecords(file *zip.File, records []map[string]
 			Friday:    row["friday"],
 			Saturday:  row["saturday"],
 			Sunday:    row["sunday"],
-			StartDate: row["state_date"],
+			StartDate: row["start_date"],
 			EndDate:   row["end_date"],
 		}
 
@@ -480,6 +488,34 @@ func (gtfs *GTFS) parseCalendarFromRecords(file *zip.File, records []map[string]
 	}
 
 	return calendars, nil
+}
+
+/* parse the trips.txt file */
+func (gtfs *GTFS) parseTripsFromRecords(file *zip.File, records []map[string]string) ([]Trip, error) {
+	if len(records) == 0 {
+		return nil, fmt.Errorf("gtfs: no valid records found in %s", file.Name)
+	}
+
+	trips := make([]Trip, 0, len(records))
+
+	for _, row := range records {
+		trip := Trip{
+			RouteId:              row["route_id"],
+			ServiceId:            row["service_id"],
+			TripId:               row["trip_id"],
+			TripHeadsign:         row["trip_headsign"],
+			TripShortName:        row["trip_short_name"],
+			DirectionId:          row["direction_id"],
+			BlockId:              row["block_id"],
+			ShapeId:              row["shape_id"],
+			WheelchairAccessible: row["wheelchair_accessible"],
+			BikesAllowed:         row["bikes_allowed"],
+		}
+
+		trips = append(trips, trip)
+	}
+
+	return trips, nil
 }
 
 /* reads csv file and returns an array of rows
@@ -530,6 +566,119 @@ func (gtfs *GTFS) readRecordsFromFile(file *zip.File) ([]map[string]string, erro
 	return records, nil
 }
 
+/* streams records from a specific zip file line-by-line without loading them all into RAM
+ */
+func (gtfs *GTFS) streamStopTimes(file *zip.File, fn func(row map[string]string) error) error {
+	rc, err := file.Open()
+	if err != nil {
+		return fmt.Errorf("gtfs: failed to open %s: %w", file.Name, err)
+	}
+	defer rc.Close()
+
+	r := csv.NewReader(rc)
+	r.FieldsPerRecord = -1
+	r.LazyQuotes = true
+
+	header, err := r.Read()
+	if err != nil {
+		return fmt.Errorf("gtfs: failed to read %s header: %w", file.Name, err)
+	}
+
+	cleanedHeader := make([]string, len(header))
+	for i, h := range header {
+		cleanedHeader[i] = strings.TrimSpace(strings.TrimPrefix(h, "\ufeff"))
+	}
+
+	for {
+		rec, err := r.Read()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("gtfs: failed to read record from %s: %w", file.Name, err)
+		}
+
+		row := make(map[string]string, len(cleanedHeader))
+		for i, colName := range cleanedHeader {
+			if i < len(rec) {
+				row[colName] = rec[i]
+			} else {
+				row[colName] = ""
+			}
+		}
+
+		if err := fn(row); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+/* streams saves stop times directly to database, to save on memory
+ */
+func (gtfs *GTFS) StreamAndSaveStopTimes(ctx context.Context, repo *Repository) error {
+	baseDir, err := gtfs.GetLocalDataDir()
+	if err != nil {
+		return err
+	}
+
+	zipPath := filepath.Join(baseDir, gtfs.GetStaticFileName())
+	zr, err := zip.OpenReader(zipPath)
+	if err != nil {
+		return err
+	}
+	defer zr.Close()
+
+	feedId, err := repo.GetFeedIdByHash(ctx, gtfs.StaticHash)
+
+	if err != nil {
+		return err
+	}
+
+	for _, f := range zr.File {
+		if f.Name == string(StopTimesFile) {
+			batch := make([]StopTimes, 0, 1000)
+
+			err := gtfs.streamStopTimes(f, func(row map[string]string) error {
+				batch = append(batch, StopTimes{
+					TripId:                row["trip_id"],
+					ArrivalTime:           row["arrival_time"],
+					DepartureTime:         row["departure_time"],
+					StopId:                row["stop_id"],
+					StopSequence:          row["stop_sequence"],
+					StopHeadsign:          row["stop_headsign"],
+					PickupType:            row["pickup_type"],
+					DropoffType:           row["drop_off_type"],
+					ShapeDistanceTraveled: row["shape_dist_traveled"],
+					Timepoint:             row["timepoint"],
+				})
+
+				if len(batch) >= 1000 {
+					if err := repo.SaveStopTimesBatch(ctx, feedId, batch); err != nil {
+						return err
+					}
+					batch = make([]StopTimes, 0, 1000)
+				}
+				return nil
+			})
+
+			if err != nil {
+				return err
+			}
+
+			if len(batch) > 0 {
+				if err := repo.SaveStopTimesBatch(ctx, feedId, batch); err != nil {
+					return err
+				}
+				batch = make([]StopTimes, 0, 1000)
+			}
+		}
+	}
+
+	return nil
+}
+
 /* parses a date formatted 20261011 YYYYMMDD into go's Time struct
  */
 func (gtfs *GTFS) parseDate(date string) (time.Time, error) {
@@ -542,19 +691,6 @@ func (gtfs *GTFS) parseDate(date string) (time.Time, error) {
 	}
 
 	return parsedDate, nil
-}
-
-/* parses a time formatted 12:49:00 HH:MM:SS into go's Time struct
- */
-func (gtfs *GTFS) parseTime(timeString string) (time.Time, error) {
-	const timeLayout = "15:04:05"
-
-	t, err := time.Parse(timeLayout, timeString)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("failed to parse time '%s'. Expected format is HH:MM:SS: %w", timeString, err)
-	}
-
-	return t, nil
 }
 
 /* cities constant
@@ -733,4 +869,19 @@ type Calendar struct {
 	Sunday    string
 	StartDate string
 	EndDate   string
+}
+
+/* represents a trip from trips.txt
+ */
+type Trip struct {
+	RouteId              string
+	ServiceId            string
+	TripId               string
+	TripHeadsign         string
+	TripShortName        string
+	DirectionId          string
+	BlockId              string
+	ShapeId              string
+	WheelchairAccessible string
+	BikesAllowed         string
 }

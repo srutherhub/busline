@@ -1,0 +1,1 @@
+SELECT EXISTS (SELECT * FROM feed_info WHERE content_hash = $1);
