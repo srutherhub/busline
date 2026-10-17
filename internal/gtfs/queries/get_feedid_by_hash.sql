@@ -1,0 +1,1 @@
+SELECT id FROM feed_info WHERE content_hash = $1;
