@@ -1,0 +1,2 @@
+ALTER TABLE feed_info
+DROP COLUMN IF EXISTS city;

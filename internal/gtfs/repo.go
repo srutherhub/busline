@@ -22,7 +22,7 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 func (repo *Repository) SaveStaticGTFS(ctx context.Context, gtfs *GTFS) error {
-	feedId, err := repo.SaveFeed(ctx, *gtfs.FeedInfo, gtfs.StaticHash)
+	feedId, err := repo.SaveFeed(ctx, *gtfs.FeedInfo, gtfs.StaticHash, string(gtfs.Config.City))
 
 	if err != nil {
 		return fmt.Errorf("gtfs: %w", err)
@@ -84,7 +84,7 @@ func (repo *Repository) DoesFeedExist(hash string) (bool, error) {
 
 /* inserts feed info into the database and returns the id
  */
-func (repo *Repository) SaveFeed(ctx context.Context, feed FeedInfo, contentHash string) (int64, error) {
+func (repo *Repository) SaveFeed(ctx context.Context, feed FeedInfo, contentHash string, city string) (int64, error) {
 	var id int64
 	err := repo.db.QueryRowContext(ctx, queries.QuerySaveFeed,
 		feed.PublisherName,
@@ -94,6 +94,7 @@ func (repo *Repository) SaveFeed(ctx context.Context, feed FeedInfo, contentHash
 		feed.EndDate,
 		feed.Version,
 		contentHash,
+		city,
 	).Scan(&id)
 	if err != nil {
 		return -1, fmt.Errorf("gtfs: save feed info: %w", err)
