@@ -12,20 +12,24 @@ import (
 func StartCronJobs(app *app.App) {
 	ctx := context.Background()
 
-	//CONSIDER REMOVING THIS IN PRODUCTION
-	go getMadisonGTFS(ctx, app)
-
 	startDailyJobs(ctx, app, 2, 0)
 }
 
-func startDailyJobs(ctx context.Context, app *app.App, targetHour, targetMinute int) {
+func startDailyJobs(ctx context.Context, app *app.App, hour, minute int) {
 	go func() {
 		for {
 			now := time.Now()
-			next := time.Date(now.Year(), now.Month(), now.Day(), targetHour, targetMinute, 0, 0, now.Location())
-			time.Sleep(time.Until(next))
+			next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, now.Location())
+			if !next.After(now) {
+				next = next.AddDate(0, 0, 1)
+			}
 
-			getMadisonGTFS(ctx, app)
+			select {
+			case <-time.After(time.Until(next)):
+				getMadisonGTFS(ctx, app)
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 }

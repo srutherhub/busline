@@ -26,6 +26,7 @@ func apiController(app *app.App) *controller.Controller {
 	api.SetBase("/api")
 
 	api.RegisterRoute(controller.Route{Method: "GET", Path: "/{city}/feed", Handler: SetJSONContentType(GetFeedInfoHandler(app))})
+	api.RegisterRoute(controller.Route{Method: "GET", Path: "/{city}/routes", Handler: SetJSONContentType(GetActiveRoutes(app))})
 	return api
 }
 

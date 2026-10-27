@@ -36,6 +36,33 @@ func GetFeedInfoHandler(app *app.App) http.HandlerFunc {
 	}
 }
 
+func GetActiveRoutes(app *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		city := r.PathValue("city")
+		if city == "" {
+			SendJSONError(w, "missing city param", http.StatusBadRequest, ErrorCode(IllegalArgument))
+			return
+		}
+
+		feedInfo, err := app.GtfsRepository.GetFeedInfoBy(r.Context(), gtfs.City(city))
+		if err != nil {
+			SendJSONError(w, err.Error(), http.StatusInternalServerError, ErrorCode(ResourceNotFound))
+			return
+		}
+
+		routes, err := app.GtfsRepository.GetActiveRoutes(r.Context(), feedInfo.Id)
+
+		if err != nil {
+			SendJSONError(w, err.Error(), http.StatusInternalServerError, ErrorCode(ResourceNotFound))
+			return
+		}
+
+		if err := json.NewEncoder(w).Encode(routes); err != nil {
+			SendJSONError(w, err.Error(), http.StatusInternalServerError, ErrorCode(ResourceNotFound))
+		}
+	}
+}
+
 func HealthzHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

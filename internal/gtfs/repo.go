@@ -4,6 +4,7 @@ import (
 	queries "busline/internal/gtfs/queries"
 	"context"
 	"fmt"
+	"time"
 
 	"database/sql"
 	_ "embed"
@@ -276,6 +277,8 @@ func (repo *Repository) GetFeedIdByHash(ctx context.Context, hash string) (int64
 	return feedId, nil
 }
 
+/** retrieves the most recent feed from a city
+ */
 func (repo *Repository) GetFeedInfoBy(ctx context.Context, city City) (FeedInfo, error) {
 	var feedInfo FeedInfo
 
@@ -296,4 +299,32 @@ func (repo *Repository) GetFeedInfoBy(ctx context.Context, city City) (FeedInfo,
 	}
 
 	return feedInfo, nil
+}
+
+/** retrieves active routes today from a feed
+ */
+func (repo *Repository) GetActiveRoutes(ctx context.Context, feedId string) ([]Route, error) {
+	now := time.Now()
+	date := now.Format("20060102")
+	weekday := int(now.Weekday())
+
+	rows, err := repo.db.QueryContext(ctx, queries.QueryGetActiveRoutes, feedId, date, weekday)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var routes []Route
+
+	for rows.Next() {
+		var route Route
+		if err := rows.Scan(
+			&route.Id, &route.RouteId, &route.ShortName, &route.LongName, &route.Url, &route.Color, &route.TextColor); err != nil {
+			return nil, err
+		}
+		routes = append(routes, route)
+	}
+	return routes, rows.Err()
 }

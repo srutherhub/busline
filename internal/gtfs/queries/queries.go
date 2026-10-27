@@ -37,3 +37,6 @@ var QueryGetFeedIdByHash string
 
 //go:embed get_feed_info.sql
 var QueryGetFeedInfo string
+
+//go:embed get_active_routes.sql
+var QueryGetActiveRoutes string

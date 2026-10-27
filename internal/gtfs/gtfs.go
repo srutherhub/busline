@@ -779,19 +779,20 @@ type Agency struct {
 /* represents a route from routes.txt
  */
 type Route struct {
-	Id           string
-	AgencyId     string
-	NetworkId    string
-	ShortName    string
-	LongName     string
-	Description  string
-	Type         RouteType
-	Url          string
-	Color        string
-	TextColor    string
-	ServiceName  string
-	SortOrder    int64
-	BikesAllowed string
+	Id           string    `json:"id"`
+	RouteId      string    `json:"route_id"`
+	AgencyId     string    `json:"agency_id"`
+	NetworkId    string    `json:"network_id"`
+	ShortName    string    `json:"short_name"`
+	LongName     string    `json:"long_name"`
+	Description  string    `json:"description"`
+	Type         RouteType `json:"type"`
+	Url          string    `json:"url"`
+	Color        string    `json:"color"`
+	TextColor    string    `json:"text_color"`
+	ServiceName  string    `json:"service_name"`
+	SortOrder    int64     `json:"sort_order"`
+	BikesAllowed string    `json:"bikes_allowed"`
 }
 
 /* represents feed information from feed_info.txt
