@@ -25,7 +25,7 @@ func apiController(app *app.App) *controller.Controller {
 	api := &controller.Controller{}
 	api.SetBase("/api")
 
-	api.RegisterRoute(controller.Route{Method: "GET", Path: "/routes/{city}", Handler: RoutesCityHandler(app)})
+	api.RegisterRoute(controller.Route{Method: "GET", Path: "/{city}/feed", Handler: SetJSONContentType(GetFeedInfoHandler(app))})
 	return api
 }
 
@@ -33,6 +33,6 @@ func baseController() *controller.Controller {
 	base := &controller.Controller{}
 	base.SetBase("")
 
-	base.RegisterRoute(controller.Route{Method: "GET", Path: "/", Handler: HealthzHandler()})
+	base.RegisterRoute(controller.Route{Method: "GET", Path: "/healthz", Handler: SetJSONContentType(HealthzHandler())})
 	return base
 }

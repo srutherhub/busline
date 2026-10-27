@@ -1,0 +1,1 @@
+SELECT id, publisher_name, url, language, start_date, end_date, version, imported_at, city FROM feed_info WHERE city = $1 ORDER BY imported_at DESC LIMIT 1;

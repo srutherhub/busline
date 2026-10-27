@@ -797,14 +797,17 @@ type Route struct {
 /* represents feed information from feed_info.txt
  */
 type FeedInfo struct {
-	PublisherName string
-	Url           string
-	Language      string
-	StartDate     time.Time
-	EndDate       time.Time
-	Version       string
-	Email         string
-	ContactUrl    string
+	Id            string    `json:"id"`
+	PublisherName string    `json:"publisher_name"`
+	Url           string    `json:"url"`
+	Language      string    `json:"language"`
+	StartDate     time.Time `json:"start_date"`
+	EndDate       time.Time `json:"end_date"`
+	ImportedAt    time.Time `json:"imported_at"`
+	Version       string    `json:"version"`
+	Email         string    `json:"email"`
+	ContactUrl    string    `json:"contact_url"`
+	City          City      `json:"city"`
 }
 
 /* represents a stop from stops.txt

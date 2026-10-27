@@ -25,47 +25,47 @@ func (repo *Repository) SaveStaticGTFS(ctx context.Context, gtfs *GTFS) error {
 	feedId, err := repo.SaveFeed(ctx, *gtfs.FeedInfo, gtfs.StaticHash, string(gtfs.Config.City))
 
 	if err != nil {
-		return fmt.Errorf("gtfs: %w", err)
+		return fmt.Errorf("%w", err)
 	}
 
 	agencyId, err := repo.SaveAgency(ctx, feedId, *gtfs.Agency)
 
 	if err != nil {
-		return fmt.Errorf("gtfs: %w", err)
+		return fmt.Errorf("%w", err)
 	}
 
 	for _, route := range gtfs.Routes {
 		err = repo.SaveRoute(ctx, feedId, agencyId, route)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
 	for _, stop := range gtfs.Stops {
 		err = repo.SaveStop(ctx, feedId, stop)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
 	for _, trip := range gtfs.Trips {
 		err = repo.SaveTrip(ctx, feedId, trip)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
 	for _, calendar := range gtfs.Calendars {
 		err = repo.SaveCalendar(ctx, feedId, calendar)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
 	for _, shape := range gtfs.Shapes {
 		err = repo.SaveShapePoint(ctx, feedId, shape)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
@@ -97,7 +97,7 @@ func (repo *Repository) SaveFeed(ctx context.Context, feed FeedInfo, contentHash
 		city,
 	).Scan(&id)
 	if err != nil {
-		return -1, fmt.Errorf("gtfs: save feed info: %w", err)
+		return -1, fmt.Errorf("failed to save feed info: %w", err)
 	}
 	return id, nil
 }
@@ -139,10 +139,10 @@ func (repo *Repository) SaveTrip(ctx context.Context, feedID int64, t Trip) erro
 		t.DirectionId, t.BlockId, t.ShapeId, t.WheelchairAccessible, t.BikesAllowed,
 	)
 	if err != nil {
-		return fmt.Errorf("gtfs: save trip %q: %w", t.TripId, err)
+		return fmt.Errorf("failed to save trip %q: %w", t.TripId, err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("gtfs: trip %q references unknown route %q", t.TripId, t.RouteId)
+		return fmt.Errorf("trip %q references unknown route %q", t.TripId, t.RouteId)
 	}
 	return nil
 }
@@ -164,10 +164,10 @@ func (repo *Repository) SaveStopTime(ctx context.Context, feedID int64, st StopT
 		st.Timepoint,
 	)
 	if err != nil {
-		return fmt.Errorf("gtfs: save stop time (trip %q, seq %d): %w", st.TripId, st.StopSequence, err)
+		return fmt.Errorf("failed to save stop time (trip %q, seq %d): %w", st.TripId, st.StopSequence, err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("gtfs: stop time references unknown trip %q or stop %q", st.TripId, st.StopId)
+		return fmt.Errorf("stop time references unknown trip %q or stop %q", st.TripId, st.StopId)
 	}
 	return nil
 }
@@ -217,7 +217,7 @@ func (repo *Repository) SaveStopTimesBatch(ctx context.Context, feedId int64, st
 		timepoints,
 	)
 	if err != nil {
-		return fmt.Errorf("gtfs: failed to batch save stop times: %w", err)
+		return fmt.Errorf("failed to batch save stop times: %w", err)
 	}
 
 	return nil
@@ -257,7 +257,7 @@ func (repo *Repository) SaveShapePoint(ctx context.Context, feedID int64, s Shap
 		s.DistanceTraveled,
 	)
 	if err != nil {
-		return fmt.Errorf("gtfs: save shape point %q seq %d: %w", s.Id, s.Sequence, err)
+		return fmt.Errorf("failed to save shape point %q seq %d: %w", s.Id, s.Sequence, err)
 	}
 	return nil
 }
@@ -274,4 +274,26 @@ func (repo *Repository) GetFeedIdByHash(ctx context.Context, hash string) (int64
 	}
 
 	return feedId, nil
+}
+
+func (repo *Repository) GetFeedInfoBy(ctx context.Context, city City) (FeedInfo, error) {
+	var feedInfo FeedInfo
+
+	err := repo.db.QueryRowContext(ctx, queries.QueryGetFeedInfo, string(city)).Scan(
+		&feedInfo.Id,
+		&feedInfo.PublisherName,
+		&feedInfo.Url,
+		&feedInfo.Language,
+		&feedInfo.StartDate,
+		&feedInfo.EndDate,
+		&feedInfo.Version,
+		&feedInfo.ImportedAt,
+		&feedInfo.City,
+	)
+
+	if err != nil {
+		return feedInfo, err
+	}
+
+	return feedInfo, nil
 }

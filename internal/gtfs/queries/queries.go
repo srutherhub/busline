@@ -34,3 +34,6 @@ var QuerySaveStopTimesBatch string
 
 //go:embed get_feedid_by_hash.sql
 var QueryGetFeedIdByHash string
+
+//go:embed get_feed_info.sql
+var QueryGetFeedInfo string
