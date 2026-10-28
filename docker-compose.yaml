@@ -15,7 +15,7 @@ services:
     expose:
       - "8080"
   db:
-    image: postgres:16-alpine
+    image: postgis/postgis:16-3.6-alpine
     command: postgres -c log_statement=none -c log_min_error_statement=panic
     restart: unless-stopped
     env_file:

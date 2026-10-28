@@ -4,6 +4,7 @@ import (
 	queries "busline/internal/gtfs/queries"
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"database/sql"
@@ -266,6 +267,10 @@ func (repo *Repository) SaveShapePoint(ctx context.Context, feedID int64, s Shap
 /* retrieves the internal feed id by content hash
  */
 func (repo *Repository) GetFeedIdByHash(ctx context.Context, hash string) (int64, error) {
+	if hash == "" {
+		return 0, fmt.Errorf("missing content hash")
+	}
+
 	var feedId int64
 
 	err := repo.db.QueryRowContext(ctx, queries.QueryGetFeedIdByHash, hash).Scan(&feedId)
@@ -280,6 +285,10 @@ func (repo *Repository) GetFeedIdByHash(ctx context.Context, hash string) (int64
 /** retrieves the most recent feed from a city
  */
 func (repo *Repository) GetFeedInfoBy(ctx context.Context, city City) (FeedInfo, error) {
+	if city == "" {
+		return FeedInfo{}, fmt.Errorf("missing feed id")
+	}
+
 	var feedInfo FeedInfo
 
 	err := repo.db.QueryRowContext(ctx, queries.QueryGetFeedInfo, string(city)).Scan(
@@ -304,6 +313,10 @@ func (repo *Repository) GetFeedInfoBy(ctx context.Context, city City) (FeedInfo,
 /** retrieves active routes today from a feed
  */
 func (repo *Repository) GetActiveRoutes(ctx context.Context, feedId string) ([]Route, error) {
+	if feedId == "" {
+		return nil, fmt.Errorf("missing feed id")
+	}
+
 	now := time.Now()
 	date := now.Format("20060102")
 	weekday := int(now.Weekday())
@@ -327,4 +340,37 @@ func (repo *Repository) GetActiveRoutes(ctx context.Context, feedId string) ([]R
 		routes = append(routes, route)
 	}
 	return routes, rows.Err()
+}
+
+/** retrieve closest stops near a set of coordinates
+ */
+
+func (repo *Repository) GetNearbyStops(ctx context.Context, feedId string, lat float64, lon float64) ([]Stop, error) {
+	if feedId == "" {
+		return nil, fmt.Errorf("missing feed id")
+	}
+
+	if math.IsNaN(lat) || math.IsNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180 {
+		return nil, fmt.Errorf("invalid coordinates: lat=%v lon=%v", lat, lon)
+	}
+
+	rows, err := repo.db.QueryContext(ctx, queries.QueryGetNearybyStops, feedId, lat, lon)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var stops []Stop
+
+	for rows.Next() {
+		var stop Stop
+		if err := rows.Scan(&stop.Id, &stop.StopId, &stop.Code, &stop.Name, &stop.Latitude, &stop.Longitude, &stop.LocationType, &stop.WheelchairBoarding, &stop.DistanceTo); err != nil {
+			return nil, err
+		}
+		stops = append(stops, stop)
+	}
+
+	return stops, nil
 }
