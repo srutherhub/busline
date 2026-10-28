@@ -16,4 +16,4 @@ download it by running:
 ### Updating Tables
 
 In the current directory, run to create a setup of sql migration files:
-`migrate create -ext sql -dir platform/db/migrations -seq "name of migration"`
+`migrate create -ext sql -dir ./platform/db/migrations -seq "name of migration"`

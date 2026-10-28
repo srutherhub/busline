@@ -4,6 +4,8 @@ import (
 	queries "busline/internal/gtfs/queries"
 	"context"
 	"fmt"
+	"math"
+	"time"
 
 	"database/sql"
 	_ "embed"
@@ -22,50 +24,50 @@ func NewRepository(db *sql.DB) *Repository {
 }
 
 func (repo *Repository) SaveStaticGTFS(ctx context.Context, gtfs *GTFS) error {
-	feedId, err := repo.SaveFeed(ctx, *gtfs.FeedInfo, gtfs.StaticHash)
+	feedId, err := repo.SaveFeed(ctx, *gtfs.FeedInfo, gtfs.StaticHash, string(gtfs.Config.City))
 
 	if err != nil {
-		return fmt.Errorf("gtfs: %w", err)
+		return fmt.Errorf("%w", err)
 	}
 
 	agencyId, err := repo.SaveAgency(ctx, feedId, *gtfs.Agency)
 
 	if err != nil {
-		return fmt.Errorf("gtfs: %w", err)
+		return fmt.Errorf("%w", err)
 	}
 
 	for _, route := range gtfs.Routes {
 		err = repo.SaveRoute(ctx, feedId, agencyId, route)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
 	for _, stop := range gtfs.Stops {
 		err = repo.SaveStop(ctx, feedId, stop)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
 	for _, trip := range gtfs.Trips {
 		err = repo.SaveTrip(ctx, feedId, trip)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
 	for _, calendar := range gtfs.Calendars {
 		err = repo.SaveCalendar(ctx, feedId, calendar)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
 	for _, shape := range gtfs.Shapes {
 		err = repo.SaveShapePoint(ctx, feedId, shape)
 		if err != nil {
-			return fmt.Errorf("gtfs: %w", err)
+			return fmt.Errorf("%w", err)
 		}
 	}
 
@@ -84,7 +86,7 @@ func (repo *Repository) DoesFeedExist(hash string) (bool, error) {
 
 /* inserts feed info into the database and returns the id
  */
-func (repo *Repository) SaveFeed(ctx context.Context, feed FeedInfo, contentHash string) (int64, error) {
+func (repo *Repository) SaveFeed(ctx context.Context, feed FeedInfo, contentHash string, city string) (int64, error) {
 	var id int64
 	err := repo.db.QueryRowContext(ctx, queries.QuerySaveFeed,
 		feed.PublisherName,
@@ -94,9 +96,10 @@ func (repo *Repository) SaveFeed(ctx context.Context, feed FeedInfo, contentHash
 		feed.EndDate,
 		feed.Version,
 		contentHash,
+		city,
 	).Scan(&id)
 	if err != nil {
-		return -1, fmt.Errorf("gtfs: save feed info: %w", err)
+		return -1, fmt.Errorf("failed to save feed info: %w", err)
 	}
 	return id, nil
 }
@@ -138,10 +141,10 @@ func (repo *Repository) SaveTrip(ctx context.Context, feedID int64, t Trip) erro
 		t.DirectionId, t.BlockId, t.ShapeId, t.WheelchairAccessible, t.BikesAllowed,
 	)
 	if err != nil {
-		return fmt.Errorf("gtfs: save trip %q: %w", t.TripId, err)
+		return fmt.Errorf("failed to save trip %q: %w", t.TripId, err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("gtfs: trip %q references unknown route %q", t.TripId, t.RouteId)
+		return fmt.Errorf("trip %q references unknown route %q", t.TripId, t.RouteId)
 	}
 	return nil
 }
@@ -163,10 +166,10 @@ func (repo *Repository) SaveStopTime(ctx context.Context, feedID int64, st StopT
 		st.Timepoint,
 	)
 	if err != nil {
-		return fmt.Errorf("gtfs: save stop time (trip %q, seq %d): %w", st.TripId, st.StopSequence, err)
+		return fmt.Errorf("failed to save stop time (trip %q, seq %d): %w", st.TripId, st.StopSequence, err)
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return fmt.Errorf("gtfs: stop time references unknown trip %q or stop %q", st.TripId, st.StopId)
+		return fmt.Errorf("stop time references unknown trip %q or stop %q", st.TripId, st.StopId)
 	}
 	return nil
 }
@@ -216,7 +219,7 @@ func (repo *Repository) SaveStopTimesBatch(ctx context.Context, feedId int64, st
 		timepoints,
 	)
 	if err != nil {
-		return fmt.Errorf("gtfs: failed to batch save stop times: %w", err)
+		return fmt.Errorf("failed to batch save stop times: %w", err)
 	}
 
 	return nil
@@ -256,7 +259,7 @@ func (repo *Repository) SaveShapePoint(ctx context.Context, feedID int64, s Shap
 		s.DistanceTraveled,
 	)
 	if err != nil {
-		return fmt.Errorf("gtfs: save shape point %q seq %d: %w", s.Id, s.Sequence, err)
+		return fmt.Errorf("failed to save shape point %q seq %d: %w", s.Id, s.Sequence, err)
 	}
 	return nil
 }
@@ -264,6 +267,10 @@ func (repo *Repository) SaveShapePoint(ctx context.Context, feedID int64, s Shap
 /* retrieves the internal feed id by content hash
  */
 func (repo *Repository) GetFeedIdByHash(ctx context.Context, hash string) (int64, error) {
+	if hash == "" {
+		return 0, fmt.Errorf("missing content hash")
+	}
+
 	var feedId int64
 
 	err := repo.db.QueryRowContext(ctx, queries.QueryGetFeedIdByHash, hash).Scan(&feedId)
@@ -273,4 +280,97 @@ func (repo *Repository) GetFeedIdByHash(ctx context.Context, hash string) (int64
 	}
 
 	return feedId, nil
+}
+
+/** retrieves the most recent feed from a city
+ */
+func (repo *Repository) GetFeedInfoBy(ctx context.Context, city City) (FeedInfo, error) {
+	if city == "" {
+		return FeedInfo{}, fmt.Errorf("missing feed id")
+	}
+
+	var feedInfo FeedInfo
+
+	err := repo.db.QueryRowContext(ctx, queries.QueryGetFeedInfo, string(city)).Scan(
+		&feedInfo.Id,
+		&feedInfo.PublisherName,
+		&feedInfo.Url,
+		&feedInfo.Language,
+		&feedInfo.StartDate,
+		&feedInfo.EndDate,
+		&feedInfo.Version,
+		&feedInfo.ImportedAt,
+		&feedInfo.City,
+	)
+
+	if err != nil {
+		return feedInfo, err
+	}
+
+	return feedInfo, nil
+}
+
+/** retrieves active routes today from a feed
+ */
+func (repo *Repository) GetActiveRoutes(ctx context.Context, feedId string) ([]Route, error) {
+	if feedId == "" {
+		return nil, fmt.Errorf("missing feed id")
+	}
+
+	now := time.Now()
+	date := now.Format("20060102")
+	weekday := int(now.Weekday())
+
+	rows, err := repo.db.QueryContext(ctx, queries.QueryGetActiveRoutes, feedId, date, weekday)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var routes []Route
+
+	for rows.Next() {
+		var route Route
+		if err := rows.Scan(
+			&route.Id, &route.RouteId, &route.ShortName, &route.LongName, &route.Url, &route.Color, &route.TextColor); err != nil {
+			return nil, err
+		}
+		routes = append(routes, route)
+	}
+	return routes, rows.Err()
+}
+
+/** retrieve closest stops near a set of coordinates
+ */
+
+func (repo *Repository) GetNearbyStops(ctx context.Context, feedId string, lat float64, lon float64) ([]Stop, error) {
+	if feedId == "" {
+		return nil, fmt.Errorf("missing feed id")
+	}
+
+	if math.IsNaN(lat) || math.IsNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180 {
+		return nil, fmt.Errorf("invalid coordinates: lat=%v lon=%v", lat, lon)
+	}
+
+	rows, err := repo.db.QueryContext(ctx, queries.QueryGetNearybyStops, feedId, lat, lon)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var stops []Stop
+
+	for rows.Next() {
+		var stop Stop
+		if err := rows.Scan(&stop.Id, &stop.StopId, &stop.Code, &stop.Name, &stop.Latitude, &stop.Longitude, &stop.LocationType, &stop.WheelchairBoarding, &stop.DistanceTo); err != nil {
+			return nil, err
+		}
+		stops = append(stops, stop)
+	}
+
+	return stops, nil
 }

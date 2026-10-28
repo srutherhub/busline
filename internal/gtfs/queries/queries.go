@@ -34,3 +34,12 @@ var QuerySaveStopTimesBatch string
 
 //go:embed get_feedid_by_hash.sql
 var QueryGetFeedIdByHash string
+
+//go:embed get_feed_info.sql
+var QueryGetFeedInfo string
+
+//go:embed get_active_routes.sql
+var QueryGetActiveRoutes string
+
+//go:embed get_nearby_stops.sql
+var QueryGetNearybyStops string

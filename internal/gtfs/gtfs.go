@@ -779,56 +779,62 @@ type Agency struct {
 /* represents a route from routes.txt
  */
 type Route struct {
-	Id           string
-	AgencyId     string
-	NetworkId    string
-	ShortName    string
-	LongName     string
-	Description  string
-	Type         RouteType
-	Url          string
-	Color        string
-	TextColor    string
-	ServiceName  string
-	SortOrder    int64
-	BikesAllowed string
+	Id           string    `json:"id"`
+	RouteId      string    `json:"route_id"`
+	AgencyId     string    `json:"agency_id,omitempty"`
+	NetworkId    string    `json:"network_id,omitempty"`
+	ShortName    string    `json:"short_name"`
+	LongName     string    `json:"long_name"`
+	Description  string    `json:"description,omitempty"`
+	Type         RouteType `json:"type"`
+	Url          string    `json:"url"`
+	Color        string    `json:"color"`
+	TextColor    string    `json:"text_color"`
+	ServiceName  string    `json:"service_name,omitempty"`
+	SortOrder    int64     `json:"sort_order,omitempty"`
+	BikesAllowed string    `json:"bikes_allowed,omitempty"`
 }
 
 /* represents feed information from feed_info.txt
  */
 type FeedInfo struct {
-	PublisherName string
-	Url           string
-	Language      string
-	StartDate     time.Time
-	EndDate       time.Time
-	Version       string
-	Email         string
-	ContactUrl    string
+	Id            string    `json:"id"`
+	PublisherName string    `json:"publisher_name"`
+	Url           string    `json:"url,omitempty"`
+	Language      string    `json:"language"`
+	StartDate     time.Time `json:"start_date"`
+	EndDate       time.Time `json:"end_date"`
+	ImportedAt    time.Time `json:"imported_at"`
+	Version       string    `json:"version"`
+	Email         string    `json:"email,omitempty"`
+	ContactUrl    string    `json:"contact_url,omitempty"`
+	City          City      `json:"city,omitempty"`
 }
 
 /* represents a stop from stops.txt
  */
 type Stop struct {
-	Id                 string
-	Code               string
-	Name               string
-	Description        string
-	Latitude           float64
-	Longitude          float64
-	ZoneId             string
-	Url                string
-	LocationType       LocationType
-	ParentStation      string
-	Timezone           string
-	WheelchairBoarding int64
-	SignType           string
-	Jurisdiction       string
-	RelativePosition   string
-	CardinalDirection  string
-	PrimaryStreet      string
-	AddressRange       string
-	CrossLocation      string
+	Id                 string       `json:"id"`
+	StopId             string       `json:"stop_id"`
+	Code               string       `json:"code,omitempty"`
+	Name               string       `json:"name"`
+	Description        string       `json:"description,omitempty"`
+	Latitude           float64      `json:"latitude"`
+	Longitude          float64      `json:"longitude"`
+	ZoneId             string       `json:"zone_id,omitempty"`
+	Url                string       `json:"url,omitempty"`
+	LocationType       LocationType `json:"location_type,omitempty"`
+	ParentStation      string       `json:"parent_station,omitempty"`
+	Timezone           string       `json:"timezone,omitempty"`
+	WheelchairBoarding int64        `json:"wheelchair_boarding,omitempty"`
+	SignType           string       `json:"sign_type,omitempty"`
+	Jurisdiction       string       `json:"jurisdiction,omitempty"`
+	RelativePosition   string       `json:"relative_position,omitempty"`
+	CardinalDirection  string       `json:"cardinal_direction,omitempty"`
+	PrimaryStreet      string       `json:"primary_street,omitempty"`
+	AddressRange       string       `json:"address_range,omitempty"`
+	CrossLocation      string       `json:"cross_location,omitempty"`
+	DistanceTo         float64      `json:"distance_to,omitempty"`
 }
 
 /* represents stop_times from stops.txt
