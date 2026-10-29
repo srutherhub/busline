@@ -25,9 +25,11 @@ func apiController(app *app.App) *controller.Controller {
 	api := &controller.Controller{}
 	api.SetBase("/api")
 
-	api.RegisterRoute(controller.Route{Method: "GET", Path: "/{city}/feed", Handler: ApiMiddleWare(app, GetFeedInfoHandler(app))})
+	api.RegisterRoute(controller.Route{Method: "GET", Path: "/{city}/feed", Handler: ApiMiddleWare(app, GetFeedInfo(app))})
 	api.RegisterRoute(controller.Route{Method: "GET", Path: "/{city}/routes", Handler: ApiMiddleWare(app, GetActiveRoutes(app))})
 	api.RegisterRoute(controller.Route{Method: "GET", Path: "/{city}/stops", Handler: ApiMiddleWare(app, GetNearbyStops(app))})
+	api.RegisterRoute(controller.Route{Method: "GET", Path: "/{city}/stops/{stopid}", Handler: ApiMiddleWare(app, GetTripsForStop(app))})
+	api.RegisterRoute(controller.Route{Method: "GET", Path: "/{city}/shapes/{shapeid}", Handler: ApiMiddleWare(app, GetShapesForTrip(app))})
 	return api
 }
 

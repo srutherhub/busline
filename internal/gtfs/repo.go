@@ -374,3 +374,93 @@ func (repo *Repository) GetNearbyStops(ctx context.Context, feedId string, lat f
 
 	return stops, nil
 }
+
+/* retrieves all trips that run through on stop
+ */
+
+func (repo *Repository) GetTripsForStop(ctx context.Context, feedId string, stopId int64) ([]StopVisit, error) {
+	if feedId == "" {
+		return nil, fmt.Errorf("missing feed id")
+	}
+	if stopId == 0 {
+		return nil, fmt.Errorf("missing feed id")
+	}
+
+	now := time.Now()
+	date := now.Format("20060102")
+	weekday := int(now.Weekday())
+
+	rows, err := repo.db.QueryContext(ctx, queries.QueryGetTripsForStop, feedId, date, weekday, stopId)
+	if err != nil {
+		return nil, err
+	}
+
+	var visits []StopVisit
+
+	for rows.Next() {
+		var v StopVisit
+		if err := rows.Scan(
+			&v.Id,
+			&v.TripId,
+			&v.ServiceId,
+			&v.Headsign,
+			&v.DirectionId,
+			&v.ShapeId,
+			&v.WheelchairAccessible,
+			&v.RouteId,
+			&v.RouteShortName,
+			&v.RouteLongName,
+			&v.RouteColor,
+			&v.RouteTextColor,
+			&v.RouteType,
+			&v.ArrivalTime,
+			&v.DepartureTime,
+			&v.StopSequence,
+			&v.ShapeDistTraveled,
+		); err != nil {
+			return nil, err
+		}
+		visits = append(visits, v)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return visits, nil
+}
+
+/* retrieves the shape
+ */
+func (repo *Repository) GetShapeForTrip(ctx context.Context, feedId string, shapeId string) ([]Shape, error) {
+	if feedId == "" {
+		return nil, fmt.Errorf("missing feed id")
+	}
+	if shapeId == "" {
+		return nil, fmt.Errorf("missing shapeId")
+	}
+
+	rows, err := repo.db.QueryContext(ctx, queries.QueryGetShapeForTrip, feedId, shapeId)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var shapes []Shape
+	for rows.Next() {
+		var shape Shape
+		if err := rows.Scan(
+			&shape.Id,
+			&shape.Sequence,
+			&shape.PointLatitude,
+			&shape.PointLongitude,
+			&shape.DistanceTraveled,
+		); err != nil {
+			return nil, err
+		}
+		shapes = append(shapes, shape)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return shapes, nil
+}

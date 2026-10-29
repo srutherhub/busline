@@ -43,3 +43,9 @@ var QueryGetActiveRoutes string
 
 //go:embed get_nearby_stops.sql
 var QueryGetNearybyStops string
+
+//go:embed get_trips_for_stop.sql
+var QueryGetTripsForStop string
+
+//go:embed get_shape_for_trip.sql
+var QueryGetShapeForTrip string

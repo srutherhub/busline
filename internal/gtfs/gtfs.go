@@ -855,11 +855,11 @@ type StopTimes struct {
 /* represents shapes from shapes.txt
  */
 type Shape struct {
-	Id               string
-	PointLatitude    string
-	PointLongitude   string
-	Sequence         string
-	DistanceTraveled string
+	Id               string `json:"id"`
+	PointLatitude    string `json:"latitude"`
+	PointLongitude   string `json:"longitude"`
+	Sequence         string `json:"sequence"`
+	DistanceTraveled string `json:"distance_traveled"`
 }
 
 /* represents a calendar from calendar.txt
@@ -890,4 +890,26 @@ type Trip struct {
 	ShapeId              string
 	WheelchairAccessible string
 	BikesAllowed         string
+}
+
+/* represents a trip visiting a stop, combines fields from trip.txt, routes.txt, stop_times.txt
+ */
+type StopVisit struct {
+	Id                   string  `json:"id"`
+	TripId               string  `json:"trip_id"`
+	ServiceId            string  `json:"service_id"`
+	Headsign             string  `json:"headsign,omitempty"`
+	DirectionId          int64   `json:"direction_id,omitempty"`
+	ShapeId              string  `json:"shape_id,omitempty"`
+	WheelchairAccessible int64   `json:"wheelchair_accessible,omitempty"`
+	RouteId              string  `json:"route_id"`
+	RouteShortName       string  `json:"route_short_name,omitempty"`
+	RouteLongName        string  `json:"route_long_name,omitempty"`
+	RouteColor           string  `json:"route_color,omitempty"`
+	RouteTextColor       string  `json:"route_text_color,omitempty"`
+	RouteType            int64   `json:"route_type"`
+	ArrivalTime          string  `json:"arrival_time,omitempty"`
+	DepartureTime        string  `json:"departure_time,omitempty"`
+	StopSequence         int64   `json:"stop_sequence"`
+	ShapeDistTraveled    float64 `json:"shape_dist_traveled,omitempty"`
 }

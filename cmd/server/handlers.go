@@ -19,7 +19,7 @@ type HealthResponse struct {
 	Status string `json:"status"`
 }
 
-func GetFeedInfoHandler(app *app.App) http.HandlerFunc {
+func GetFeedInfo(app *app.App) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		city := gtfs.City(r.PathValue("city"))
 
@@ -35,7 +35,7 @@ func GetFeedInfoHandler(app *app.App) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(feedInfo); err != nil {
-			SendJSONError(w, "failed to encode response to json", http.StatusInternalServerError, ErrorCode(ResourceNotFound), err)
+			SendJSONError(w, "failed to encode response to json", http.StatusInternalServerError, ErrorCode(InternalServerError), err)
 		}
 	}
 }
@@ -58,7 +58,7 @@ func GetActiveRoutes(app *app.App) http.HandlerFunc {
 		}
 
 		if err := json.NewEncoder(w).Encode(routes); err != nil {
-			SendJSONError(w, "failed to encode response to json", http.StatusInternalServerError, ErrorCode(ResourceNotFound), err)
+			SendJSONError(w, "failed to encode response to json", http.StatusInternalServerError, ErrorCode(InternalServerError), err)
 		}
 	}
 }
@@ -88,10 +88,78 @@ func GetNearbyStops(app *app.App) http.HandlerFunc {
 			SendJSONError(w, "failed to retrieve nearby stops", http.StatusInternalServerError, ErrorCode(InternalServerError), err)
 			return
 		}
+
 		if err := json.NewEncoder(w).Encode(stops); err != nil {
-			SendJSONError(w, "failed to encode response to json", http.StatusInternalServerError, ErrorCode(ResourceNotFound), err)
+			SendJSONError(w, "failed to encode response to json", http.StatusInternalServerError, ErrorCode(InternalServerError), err)
 		}
 
+	}
+}
+
+func GetTripsForStop(app *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fc, ok := r.Context().Value(FeedCtxKey).(FeedContext)
+		if !ok {
+			SendJSONError(w, "feed context missing", http.StatusInternalServerError, ErrorCode(InternalServerError), nil)
+			return
+		}
+		feedId := fc.FeedId
+
+		paramStopId := r.PathValue("stopid")
+		stopId, err := strconv.ParseInt(paramStopId, 10, 64)
+		if err != nil {
+			SendJSONError(w, fmt.Sprintf("failed to parse stopid: %s", paramStopId), http.StatusBadRequest, ErrorCode(IllegalArgument), nil)
+			return
+		}
+		if stopId == 0 {
+			SendJSONError(w, "stop id param missing", http.StatusBadRequest, ErrorCode(IllegalArgument), nil)
+			return
+		}
+
+		visits, err := app.GtfsRepository.GetTripsForStop(r.Context(), feedId, stopId)
+		if err != nil {
+			SendJSONError(w, fmt.Sprintf("failed to retrieve trips for stop: %s", stopId), http.StatusInternalServerError, ErrorCode(InternalServerError), err)
+			return
+		}
+
+		if visits == nil {
+			visits = []gtfs.StopVisit{}
+		}
+
+		if err := json.NewEncoder(w).Encode(visits); err != nil {
+			SendJSONError(w, "failed to encode response to json", http.StatusInternalServerError, ErrorCode(InternalServerError), err)
+		}
+	}
+}
+
+func GetShapesForTrip(app *app.App) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		fc, ok := r.Context().Value(FeedCtxKey).(FeedContext)
+		if !ok {
+			SendJSONError(w, "feed context missing", http.StatusInternalServerError, ErrorCode(InternalServerError), nil)
+			return
+		}
+		feedId := fc.FeedId
+
+		shapeId := r.PathValue("shapeid")
+		if shapeId == "" {
+			SendJSONError(w, "shape id is missing", http.StatusBadRequest, ErrorCode(IllegalArgument), nil)
+			return
+		}
+
+		shapes, err := app.GtfsRepository.GetShapeForTrip(r.Context(), feedId, shapeId)
+		if err != nil {
+			SendJSONError(w, fmt.Sprintf("failed to retrieve shapes for shape id: %s", shapeId), http.StatusInternalServerError, ErrorCode(InternalServerError), err)
+			return
+		}
+
+		if shapes == nil {
+			shapes = []gtfs.Shape{}
+		}
+
+		if err := json.NewEncoder(w).Encode(shapes); err != nil {
+			SendJSONError(w, "failed to encode response to json", http.StatusInternalServerError, ErrorCode(InternalServerError), err)
+		}
 	}
 }
 
@@ -110,6 +178,10 @@ func HealthzHandler() http.HandlerFunc {
 
 func SendJSONError(w http.ResponseWriter, message string, statusCode int, code ErrorCode, err error) {
 	w.WriteHeader(statusCode)
-	resp := ErrorResponse{Code: string(code), Message: message, Details: err.Error()}
+	details := ""
+	if err != nil {
+		details = err.Error()
+	}
+	resp := ErrorResponse{Code: string(code), Message: message, Details: details}
 	json.NewEncoder(w).Encode(resp)
 }
