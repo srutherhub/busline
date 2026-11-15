@@ -9,6 +9,8 @@ import (
 
 	"database/sql"
 	_ "embed"
+
+	googlegtfs "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
 )
 
 /* saves gtfs data to the database
@@ -463,4 +465,70 @@ func (repo *Repository) GetShapeForTrip(ctx context.Context, feedId string, shap
 		return nil, err
 	}
 	return shapes, nil
+}
+
+func (repo *Repository) GetFeedIdFromVersion(ctx context.Context, version string) (int64, error) {
+	var feedId int64
+	err := repo.db.QueryRowContext(ctx, queries.QueryGetFeedIdFromVersion).Scan(&feedId)
+	if err != nil {
+		return 0, err
+	}
+
+	return feedId, nil
+}
+
+func (repo *Repository) SaveRealTimeTripUpdates(ctx context.Context, realtimeFeed *googlegtfs.FeedMessage) error {
+	if realtimeFeed == nil {
+		return fmt.Errorf("failed to save trip updates: feed cannot be null")
+	}
+
+	feedTimestamp := time.Unix(int64(realtimeFeed.GetHeader().GetTimestamp()), 0).UTC()
+
+	var (
+		tripIDs      []string
+		routeIDs     []string
+		tripStatuses []string
+		vehicleIDs   []string
+		stopIDs      []string
+		stopSeqs     []int32
+		arrivals     []int64
+		departures   []int64
+		stopStatuses []string
+		predictedTSs []int64
+	)
+
+	for _, e := range realtimeFeed.GetEntity() {
+		tu := e.GetTripUpdate()
+		if tu == nil {
+			continue
+		}
+		trip := tu.GetTrip()
+
+		for _, stu := range tu.GetStopTimeUpdate() {
+			tripIDs = append(tripIDs, trip.GetTripId())
+			routeIDs = append(routeIDs, trip.GetRouteId())
+			tripStatuses = append(tripStatuses, trip.GetScheduleRelationship().String())
+			vehicleIDs = append(vehicleIDs, tu.GetVehicle().GetId())
+			stopIDs = append(stopIDs, stu.GetStopId())
+			stopSeqs = append(stopSeqs, int32(stu.GetStopSequence()))
+			arrivals = append(arrivals, stu.GetArrival().GetTime())
+			departures = append(departures, stu.GetDeparture().GetTime())
+			stopStatuses = append(stopStatuses, stu.GetScheduleRelationship().String())
+			predictedTSs = append(predictedTSs, int64(tu.GetTimestamp()))
+		}
+	}
+
+	if len(tripIDs) == 0 {
+		return nil
+	}
+
+	_, err := repo.db.ExecContext(ctx, queries.QuerySaveTripUpdates,
+		feedTimestamp,
+		tripIDs, routeIDs, tripStatuses, vehicleIDs, stopIDs,
+		stopSeqs, arrivals, departures, stopStatuses, predictedTSs,
+	)
+	if err != nil {
+		return fmt.Errorf("save trip updates: %w", err)
+	}
+	return nil
 }

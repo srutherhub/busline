@@ -15,6 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	googlegtfs "github.com/MobilityData/gtfs-realtime-bindings/golang/gtfs"
+	"google.golang.org/protobuf/proto"
 )
 
 /* struct that implements the general transit feed specification
@@ -34,8 +37,9 @@ type GTFS struct {
 /* config options for the gtfs struct
  */
 type GTFSConfig struct {
-	StaticUrl string
-	City      City
+	StaticUrl       string
+	RealtimeTripUrl string
+	City            City
 }
 
 /* initializes a new gtfs struct
@@ -44,6 +48,10 @@ type GTFSConfig struct {
 func NewGTFS(config GTFSConfig) (*GTFS, error) {
 	if config.StaticUrl == "" {
 		return nil, errors.New("gtfs: static url cannot be null")
+	}
+
+	if config.RealtimeTripUrl == "" {
+		return nil, errors.New("gtfs: realtime trip updates url cannot be null")
 	}
 
 	if config.City == "" {
@@ -691,6 +699,30 @@ func (gtfs *GTFS) parseDate(date string) (time.Time, error) {
 	}
 
 	return parsedDate, nil
+}
+
+func (gtfs *GTFS) FetchRealtimeTripUpdates() (*googlegtfs.FeedMessage, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	resp, err := client.Get(gtfs.Config.RealtimeTripUrl)
+	if err != nil {
+		return nil, err
+	}
+
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	feed := &googlegtfs.FeedMessage{}
+
+	if err := proto.Unmarshal(body, feed); err != nil {
+		return nil, err
+	}
+
+	return feed, nil
 }
 
 /* cities constant

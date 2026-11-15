@@ -49,3 +49,9 @@ var QueryGetTripsForStop string
 
 //go:embed get_shape_for_trip.sql
 var QueryGetShapeForTrip string
+
+//go:embed save_trip_updates.sql
+var QuerySaveTripUpdates string
+
+//go:embed get_feed_id_from_version.sql
+var QueryGetFeedIdFromVersion string
