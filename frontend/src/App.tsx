@@ -1,11 +1,12 @@
 import "./App.css";
 import Map from "./components/Map";
+import Navbar from "./components/Navbar";
 
 function App() {
   return (
     <div className="layout">
       <div className="sidebar-container">
-        <div>hello from app</div>
+        <Navbar />
       </div>
       <div className="map-container">
         <Map />

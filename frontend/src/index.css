@@ -3,6 +3,7 @@ body,
 #root {
   margin: 0;
   height: 100%;
+  font-family: "Open Sans", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 :root {
@@ -29,6 +30,15 @@ body,
     --on-accent: #042f2e;
     --accent-soft: #134e4a;
   }
+}
+
+h1,
+h2,
+h3,
+h4,
+h5 {
+  margin: 0;
+  padding: 0;
 }
 
 body {
