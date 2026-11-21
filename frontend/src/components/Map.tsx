@@ -14,6 +14,8 @@ export default function MapView() {
         longitude: -89.384171,
         latitude: 43.074699,
         zoom: 13,
+        pitch: 45,
+        bearing: 0,
       }}
       controller
       layers={[]}
