@@ -8,7 +8,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 50% 50%;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   height: 100%;
 }
 
@@ -20,4 +20,44 @@
 
 .navbar-container {
   padding: 0.25rem;
+}
+
+.sidebar-container {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  overflow-y: auto;
+  gap: 1rem;
+}
+
+.interactable:hover {
+  background-color: var(--border);
+  cursor: pointer;
+}
+.secondary {
+  color: var(--text-muted);
+}
+
+.feed-container {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.routes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.react-loading-skeleton {
+  opacity: 0;
+  animation: skeleton-appear 0s linear 200ms forwards;
+}
+
+@keyframes skeleton-appear {
+  to {
+    opacity: 1;
+  }
 }
