@@ -10,4 +10,7 @@ export default defineConfig({
     exclude: ["maplibre-gl"],
     include: ["react", "react-dom", "@deck.gl/react"],
   },
+  server: {
+    proxy: { "/api": "http://localhost" },
+  },
 });

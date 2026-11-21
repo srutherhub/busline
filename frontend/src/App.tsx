@@ -4,12 +4,13 @@ import Navbar from "./components/Navbar";
 
 function App() {
   return (
-    <div className="layout">
-      <div className="sidebar-container">
-        <Navbar />
-      </div>
-      <div className="map-container">
-        <Map />
+    <div className="app">
+      <Navbar />
+      <div className="layout">
+        <div className="sidebar-container"></div>
+        <div className="map-container">
+          <Map />
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,12 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
 .layout {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 50% 50%;
   height: 100%;
@@ -11,5 +19,5 @@
 }
 
 .navbar-container {
-  padding: 0.5rem;
+  padding: 0.25rem;
 }
